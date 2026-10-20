@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 /// Where a card sits on the reel, given its distance from the centre line.
 ///
@@ -32,8 +33,8 @@ nonisolated struct CardTransform {
         // Cubic Hermite from the centre to the first fold: leaves the centre quickly and
         // arrives with exactly the slope of the sliver stack, so motion stays continuous.
         let firstGap = Double(cardHeight) * 0.5 + 30
-        let sliver = 26.0
-        let decay = 0.84
+        let sliver = 34.0
+        let decay = 0.9
         let tailSlope = sliver * -log(decay) / (1 - decay)
         let s0 = 1.7
         let s1 = tailSlope / firstGap
@@ -42,11 +43,11 @@ nonisolated struct CardTransform {
         let tail = sliver * (1 - pow(decay, beyond)) / (1 - decay)
         y = CGFloat(sign * (firstGap * hermite + tail))
 
-        let tilt = min(66 * fold + 2.5 * beyond, 78)
+        let tilt = min(66 * fold + 1.5 * beyond, 74)
         angle = -sign * tilt
 
-        let rawScale = 1 + 0.035 * (1 - fold) - 0.035 * beyond
-        scale = CGFloat(max(rawScale, 0.72))
+        let rawScale = 1 + 0.035 * (1 - fold) - 0.022 * beyond
+        scale = CGFloat(max(rawScale, 0.8))
         shade = min(0.36 * fold + 0.07 * beyond, 0.78)
 
         let fadeStart = 4.4

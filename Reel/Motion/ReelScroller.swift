@@ -31,7 +31,7 @@ final class ReelScroller {
     @ObservationIgnored private var velocity: Double = 0
     @ObservationIgnored private var target: Double = 0
     @ObservationIgnored private var dragOrigin: Double = 0
-    @ObservationIgnored private var spin: SpinPlan?
+    @ObservationIgnored private var spinPlan: SpinPlan?
     @ObservationIgnored private var driver: FrameDriver?
 
     private struct SpinPlan {
@@ -46,7 +46,7 @@ final class ReelScroller {
 
     func reset(count: Int) {
         driver?.stop()
-        spin = nil
+        spinPlan = nil
         velocity = 0
         self.count = count
         phase = .idle
@@ -87,7 +87,7 @@ final class ReelScroller {
     func dragChanged(translation: CGFloat, spacing: CGFloat) {
         if phase != .dragging {
             driver?.stop()
-            spin = nil
+            spinPlan = nil
             dragOrigin = position
             phase = .dragging
         }
@@ -128,7 +128,7 @@ final class ReelScroller {
     }
 
     private func start(_ plan: SpinPlan) {
-        spin = plan
+        spinPlan = plan
         phase = .spinning
         startDriver()
     }
@@ -138,7 +138,7 @@ final class ReelScroller {
     private func step(_ dt: Double) {
         switch phase {
         case .spinning:
-            guard var plan = spin else {
+            guard var plan = spinPlan else {
                 phase = .idle
                 driver?.stop()
                 return
@@ -148,9 +148,9 @@ final class ReelScroller {
             // Quartic ease-out: fast start, a long dramatic crawl at the end.
             let eased = 1 - pow(1 - progress, 4)
             position = plan.from + (plan.to - plan.from) * eased
-            spin = plan
+            spinPlan = plan
             if progress >= 1 {
-                spin = nil
+                spinPlan = nil
                 if plan.celebrates { landings += 1 }
                 // A small forward kick lets the card overshoot a hair and settle, like a real reel.
                 settle(on: plan.to, velocity: plan.celebrates ? 2.4 : 1.2)
