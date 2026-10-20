@@ -27,7 +27,6 @@ nonisolated struct TicketPiece: Shape {
             ).path(in: rect)
             edgeX = rect.minX
         }
-        guard notch > 0 else { return base }
         var notches = Path()
         notches.addEllipse(in: CGRect(x: edgeX - notch, y: rect.minY - notch, width: notch * 2, height: notch * 2))
         notches.addEllipse(in: CGRect(x: edgeX - notch, y: rect.maxY - notch, width: notch * 2, height: notch * 2))
@@ -98,8 +97,7 @@ struct TicketStub: View {
         .padding(.leading, 14)
         .padding(.trailing, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(movie.base.opacity(0.32)), in: TicketPiece(side: .main, notch: 0))
-        .clipShape(TicketPiece(side: .main))
+        .background { TicketSurface(side: .main, tint: movie.base, depth: 0.62) }
         .overlay(alignment: .topTrailing) {
             if isWatched {
                 WatchedStamp(color: movie.glow)
@@ -130,8 +128,7 @@ struct TicketStub: View {
         }
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .glassEffect(.regular.tint(movie.base.opacity(0.5)).interactive(), in: TicketPiece(side: .stub, notch: 0))
-        .clipShape(TicketPiece(side: .stub))
+        .background { TicketSurface(side: .stub, tint: movie.base, depth: 0.45) }
         .overlay(alignment: .leading) {
             Perforation()
                 .stroke(.white.opacity(0.28), style: StrokeStyle(lineWidth: 1.2, dash: [3, 4]))
@@ -141,6 +138,51 @@ struct TicketStub: View {
         .onTapGesture(perform: onTear)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(isWatched ? "Mark \(movie.title) as not watched" : "Mark \(movie.title) as watched")
+    }
+}
+
+/// A translucent, top-lit ticket surface. Drawn by hand rather than with the
+/// glass material, because glass renders the notch cut-outs as dark discs.
+private struct TicketSurface: View {
+    let side: TicketPiece.Side
+    let tint: Color
+    /// How far the tint is pulled toward the app's black (0…1).
+    let depth: Double
+
+    var body: some View {
+        let shape = TicketPiece(side: side)
+        shape
+            .fill(
+                LinearGradient(
+                    colors: [
+                        tint.mix(with: Theme.night, by: depth * 0.6).opacity(0.94),
+                        tint.mix(with: Theme.night, by: min(depth + 0.25, 0.95)).opacity(0.94),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay {
+                // Sheen across the top third, like light catching laminated card.
+                shape.fill(
+                    LinearGradient(
+                        colors: [.white.opacity(0.1), .white.opacity(0)],
+                        startPoint: .top,
+                        endPoint: UnitPoint(x: 0.5, y: 0.4)
+                    )
+                )
+            }
+            .overlay {
+                shape.stroke(
+                    LinearGradient(
+                        colors: [.white.opacity(0.32), .white.opacity(0.06)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+            }
+            .shadow(color: .black.opacity(0.35), radius: 14, y: 8)
     }
 }
 

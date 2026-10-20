@@ -85,8 +85,10 @@ struct FilmCard: View {
                     .symbolEffect(.pulse)
                     .foregroundStyle(Theme.ember)
                 Text("Rolling the reel…")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .font(.display(24))
+            .font(.display(23))
             .foregroundStyle(Theme.primaryText)
             Text("LET IT LAND — OR GRAB IT")
                 .font(.mono(11))
