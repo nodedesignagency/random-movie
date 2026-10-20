@@ -27,6 +27,7 @@ nonisolated struct TicketPiece: Shape {
             ).path(in: rect)
             edgeX = rect.minX
         }
+        guard notch > 0 else { return base }
         var notches = Path()
         notches.addEllipse(in: CGRect(x: edgeX - notch, y: rect.minY - notch, width: notch * 2, height: notch * 2))
         notches.addEllipse(in: CGRect(x: edgeX - notch, y: rect.maxY - notch, width: notch * 2, height: notch * 2))
@@ -97,7 +98,8 @@ struct TicketStub: View {
         .padding(.leading, 14)
         .padding(.trailing, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(movie.base.opacity(0.32)), in: TicketPiece(side: .main))
+        .glassEffect(.regular.tint(movie.base.opacity(0.32)), in: TicketPiece(side: .main, notch: 0))
+        .clipShape(TicketPiece(side: .main))
         .overlay(alignment: .topTrailing) {
             if isWatched {
                 WatchedStamp(color: movie.glow)
@@ -128,7 +130,8 @@ struct TicketStub: View {
         }
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .glassEffect(.regular.tint(movie.base.opacity(0.5)).interactive(), in: TicketPiece(side: .stub))
+        .glassEffect(.regular.tint(movie.base.opacity(0.5)).interactive(), in: TicketPiece(side: .stub, notch: 0))
+        .clipShape(TicketPiece(side: .stub))
         .overlay(alignment: .leading) {
             Perforation()
                 .stroke(.white.opacity(0.28), style: StrokeStyle(lineWidth: 1.2, dash: [3, 4]))

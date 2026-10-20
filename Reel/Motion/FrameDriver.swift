@@ -32,7 +32,8 @@ final class FrameDriver: NSObject {
         let now = link.timestamp
         let elapsed = lastTimestamp.map { now - $0 } ?? link.duration
         lastTimestamp = now
-        // Clamp so a hitch (or the first frame) can't fling the simulation.
-        onFrame(min(max(elapsed, 1.0 / 240.0), 1.0 / 30.0))
+        // Real elapsed time keeps timed curves on schedule when frames drop; the cap
+        // only guards against a huge jump after the app returns from the background.
+        onFrame(min(max(elapsed, 1.0 / 240.0), 0.25))
     }
 }

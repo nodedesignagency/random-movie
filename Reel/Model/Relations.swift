@@ -47,21 +47,16 @@ nonisolated enum RelationGraph {
         relations.reserveCapacity(catalog.count)
 
         for other in catalog where other.id != movie.id {
-            var score = 0.0
-            var strongest: (link: Connection, weight: Double)?
+            var links: [(link: Connection, weight: Double)] = []
+            if other.director == movie.director { links.append((.director(movie.director), 6)) }
+            for actor in movie.cast where other.cast.contains(actor) { links.append((.actor(actor), 4.5)) }
+            for mood in movie.moods where other.moods.contains(mood) { links.append((.mood(mood), 1.5)) }
+            for genre in movie.genres where other.genres.contains(genre) { links.append((.genre(genre), 1.1)) }
+            if other.decade == movie.decade { links.append((.era(movie.decade), 0.6)) }
 
-            func consider(_ link: Connection, weight: Double) {
-                score += weight
-                if weight > (strongest?.weight ?? 0) { strongest = (link, weight) }
-            }
-
-            if other.director == movie.director { consider(.director(movie.director), weight: 6) }
-            for actor in movie.cast where other.cast.contains(actor) { consider(.actor(actor), weight: 4.5) }
-            for mood in movie.moods where other.moods.contains(mood) { consider(.mood(mood), weight: 1.5) }
-            for genre in movie.genres where other.genres.contains(genre) { consider(.genre(genre), weight: 1.1) }
-            if other.decade == movie.decade { consider(.era(movie.decade), weight: 0.6) }
-
-            guard let strongest, score > 0 else { continue }
+            // `max(by:)` keeps the first of equal maxima, and links are appended most specific first.
+            guard let strongest = links.max(by: { $0.weight < $1.weight }) else { continue }
+            let score = links.reduce(0) { $0 + $1.weight }
             let jitter = Double(StableHash.of(movie.id + "→" + other.id) % 1000) / 1000 * 0.9
             relations.append(Relation(movie: other, link: strongest.link, score: score + jitter))
         }

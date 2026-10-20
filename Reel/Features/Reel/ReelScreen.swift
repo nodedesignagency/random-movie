@@ -44,6 +44,13 @@ struct ReelScreen: View {
                     .transition(.opacity)
             }
         }
+        .overlay(alignment: .top) {
+            // The reel runs up under the header; a soft scrim keeps the wordmark and counter legible.
+            LinearGradient(colors: [Theme.night.opacity(0.92), Theme.night.opacity(0)], startPoint: .top, endPoint: .bottom)
+                .frame(height: 150)
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
+        }
         .overlay(alignment: .top) { header }
         .sensoryFeedback(.selection, trigger: scroller.index)
         .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: scroller.landings)

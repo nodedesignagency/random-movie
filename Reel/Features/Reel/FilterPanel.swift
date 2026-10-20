@@ -71,14 +71,15 @@ struct MoodDial: View {
         VStack(spacing: 10) {
             GeometryReader { proxy in
                 let width = proxy.size.width
+                let focusX = proxy.frame(in: .global).midX
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: 12) {
                         ForEach(options, id: \.self) { id in
                             glyph(for: Mood(rawValue: id))
                                 .frame(width: itemSize, height: itemSize)
                                 .visualEffect { content, geometry in
-                                    let midX = geometry.frame(in: .scrollView(axis: .horizontal)).midX
-                                    let distance = abs(midX - width / 2) / 110
+                                    let midX = geometry.frame(in: .global).midX
+                                    let distance = abs(midX - focusX) / 110
                                     return content
                                         .scaleEffect(max(0.6, 1 - distance * 0.4))
                                         .opacity(max(0.28, 1 - distance * 0.6))

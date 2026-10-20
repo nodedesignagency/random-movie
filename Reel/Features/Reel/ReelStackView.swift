@@ -105,7 +105,7 @@ private struct ReelCard: View {
                 axis: (x: 1, y: 0, z: 0),
                 anchor: .center,
                 anchorZ: 0,
-                perspective: 0.45
+                perspective: 0.35
             )
             .opacity(transform.opacity)
     }

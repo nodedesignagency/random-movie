@@ -46,8 +46,10 @@ nonisolated struct CardTransform {
         let tilt = min(66 * fold + 1.5 * beyond, 74)
         angle = -sign * tilt
 
-        let rawScale = 1 + 0.035 * (1 - fold) - 0.022 * beyond
-        scale = CGFloat(max(rawScale, 0.8))
+        // Folding swings the near edge toward the camera, which perspective magnifies;
+        // shrinking folded cards cancels that so the drum recedes instead of flaring.
+        let rawScale = 1.035 - 0.2 * fold - 0.022 * beyond
+        scale = CGFloat(max(rawScale, 0.68))
         shade = min(0.36 * fold + 0.07 * beyond, 0.78)
 
         let fadeStart = 4.4

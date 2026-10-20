@@ -248,10 +248,10 @@ private struct OrbitNodeView: View {
                     .opacity(node.isCenter ? 1 : 0)
             }
             .shadow(color: node.movie.glow.opacity(node.isCenter ? 0.55 : 0.25), radius: node.isCenter ? 34 : 14)
-            .overlay(alignment: .top) {
+            .overlay(alignment: node.captionAbove ? .bottom : .top) {
                 if let link = node.link {
                     caption(link)
-                        .offset(y: diameter + 8)
+                        .offset(y: node.captionAbove ? -(diameter + 8) : diameter + 8)
                 }
             }
             .contentShape(.circle)

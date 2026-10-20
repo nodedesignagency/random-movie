@@ -8,6 +8,8 @@ nonisolated struct OrbitNode: Identifiable {
     let diameter: CGFloat
     /// Stagger for idle drift and edge pulses, so nothing moves in lockstep.
     let phase: Double
+    /// Upper-left and upper-right satellites put their caption above, so it never runs into the centre.
+    var captionAbove = false
 
     var id: String { movie.id }
     var isCenter: Bool { link == nil }
@@ -22,7 +24,7 @@ nonisolated enum OrbitLayout {
     /// own shape but never reshuffles while you look at it.
     static func nodes(center: Movie, relations: [Relation], in size: CGSize) -> [OrbitNode] {
         let origin = CGPoint(x: size.width / 2, y: size.height * 0.42)
-        let radiusX = min(size.width * 0.37, 160)
+        let radiusX = min(size.width * 0.39, 166)
         let radiusY = min(size.height * 0.24, radiusX * 1.12)
         var rng = SplitMix64(seed: center.seed)
         let start = -Double.pi / 2 + rng.range(-0.35, 0.35)
@@ -35,7 +37,11 @@ nonisolated enum OrbitLayout {
                 x: origin.x + CGFloat(cos(angle)) * radiusX * stretch,
                 y: origin.y + CGFloat(sin(angle)) * radiusY * stretch
             )
-            nodes.append(OrbitNode(movie: relation.movie, link: relation.link, point: point, diameter: satelliteDiameter, phase: Double(k) * 0.37))
+            let captionAbove = point.y < origin.y - 20 && abs(point.x - origin.x) > radiusX * 0.35
+            nodes.append(OrbitNode(
+                movie: relation.movie, link: relation.link, point: point,
+                diameter: satelliteDiameter, phase: Double(k) * 0.37, captionAbove: captionAbove
+            ))
         }
         return nodes
     }
