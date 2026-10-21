@@ -1,6 +1,6 @@
 import Foundation
 
-/// Deterministic RNG so every poster is generated identically on every launch.
+/// Deterministic RNG, so the day's rack order and pick are the same on every launch that day.
 nonisolated struct SplitMix64: RandomNumberGenerator {
     private var state: UInt64
 
@@ -21,7 +21,7 @@ nonisolated struct SplitMix64: RandomNumberGenerator {
     }
 }
 
-/// FNV-1a. `Hasher` is randomly seeded per process, which would reshuffle the art every launch.
+/// FNV-1a. `Hasher` is randomly seeded per process, which would reshuffle the rack every launch.
 nonisolated enum StableHash {
     static func of(_ text: String) -> UInt64 {
         var hash: UInt64 = 0xCBF2_9CE4_8422_2325

@@ -1,113 +1,110 @@
-import SwiftUI
+import Foundation
+import Observation
 
-/// The catalog, the current filtered deck, and the user's saved stubs.
+/// The rack's running order, tonight's pick, the mood filter and the shelf of saved films.
 @Observable
 final class MovieStore {
-    let catalog: [Movie]
+    /// Films in rack order. Shuffled with the date as the seed, so the rack is new every day
+    /// but stays put for the evening.
+    let films: [Movie]
 
-    /// The catalog shuffled once per launch, so the reel feels different every time you open it.
-    private let shuffled: [Movie]
+    /// Tonight's pick. Held for the whole day; "Pick for me" replaces it.
+    private(set) var pickID: String
 
-    var filters = Filters() {
-        didSet {
-            guard filters != oldValue else { return }
-            rebuildDeck()
+    var mood: Mood?
+
+    private(set) var savedIDs: [String]
+
+    private let defaults: UserDefaults
+    private let day: String
+    private static let savedKey = "reel.saved"
+    private static let pickKey = "reel.pick"
+
+    init(catalog: [Movie]? = nil, defaults: UserDefaults = .standard, today: Date = .now) {
+        let movies = catalog ?? MovieStore.loadBundledCatalog()
+        let day = MovieStore.dayKey(today)
+        var random = SplitMix64(seed: StableHash.of(day))
+        let films = movies.shuffled(using: &random)
+
+        self.films = films
+        self.defaults = defaults
+        self.day = day
+        self.savedIDs = defaults.stringArray(forKey: Self.savedKey) ?? []
+
+        let stored = defaults.dictionary(forKey: Self.pickKey)?[day] as? String
+        if let stored, films.contains(where: { $0.id == stored }) {
+            pickID = stored
+        } else if films.isEmpty {
+            pickID = ""
+        } else {
+            pickID = films[Int(StableHash.of(day + "·pick") % UInt64(films.count))].id
         }
     }
 
-    private(set) var deck: [Movie] = []
-    /// Bumped whenever `deck` is rebuilt, so views can reset scroll state.
-    private(set) var deckVersion = 0
+    // MARK: Rack
 
-    private(set) var savedIDs: [String]
-    private(set) var watchedIDs: Set<String>
+    var pickIndex: Int { index(of: pickID) ?? 0 }
 
-    private let defaults: UserDefaults
-    private static let savedKey = "reel.saved"
-    private static let watchedKey = "reel.watched"
+    func index(of id: String) -> Int? { films.firstIndex { $0.id == id } }
 
-    init(catalog: [Movie]? = nil, defaults: UserDefaults = .standard) {
-        let movies = catalog ?? MovieStore.loadBundledCatalog()
-        self.catalog = movies
-        self.shuffled = movies.shuffled()
-        self.defaults = defaults
-        self.savedIDs = defaults.stringArray(forKey: Self.savedKey) ?? []
-        self.watchedIDs = Set(defaults.stringArray(forKey: Self.watchedKey) ?? [])
-        rebuildDeck()
+    func film(at index: Int) -> Movie? { films.indices.contains(index) ? films[index] : nil }
+
+    func setPick(_ movie: Movie) {
+        pickID = movie.id
+        defaults.set([day: movie.id], forKey: Self.pickKey)
     }
 
-    // MARK: Deck
-
-    func movie(at index: Int) -> Movie? {
-        deck.indices.contains(index) ? deck[index] : nil
+    func matchesMood(_ movie: Movie) -> Bool {
+        guard let mood else { return true }
+        return movie.moods.contains(mood)
     }
 
-    /// A random deck index that isn't `current`, when there's any choice at all.
-    func randomIndex(excluding current: Int) -> Int? {
-        guard !deck.isEmpty else { return nil }
-        guard deck.count > 1 else { return 0 }
-        var pick = Int.random(in: 0..<(deck.count - 1))
-        if pick >= current { pick += 1 }
-        return pick
+    func count(for mood: Mood?) -> Int {
+        guard let mood else { return films.count }
+        return films.reduce(0) { $0 + ($1.moods.contains(mood) ? 1 : 0) }
     }
 
-    func count(matching filters: Filters) -> Int {
-        catalog.reduce(0) { $0 + (filters.matches($1) ? 1 : 0) }
+    /// A random film in the current mood, far enough along the rack that the trip is worth watching.
+    func randomIndex(awayFrom here: Int) -> Int? {
+        var pool = films.indices.filter { $0 != here && matchesMood(films[$0]) }
+        let far = pool.filter { abs($0 - here) >= 6 }
+        if !far.isEmpty { pool = far }
+        return pool.randomElement()
     }
 
-    private func rebuildDeck() {
-        deck = shuffled.filter(filters.matches)
-        deckVersion += 1
+    func related(to movie: Movie) -> Movie? {
+        RelationGraph.related(to: movie, in: films, limit: 1).first?.movie
     }
 
-    // MARK: Orbit
-
-    func related(to movie: Movie, limit: Int = 6) -> [Relation] {
-        RelationGraph.related(to: movie, in: catalog, limit: limit)
-    }
-
-    // MARK: Stubs
+    // MARK: Shelf
 
     var savedMovies: [Movie] {
-        let byID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.id, $0) })
+        let byID = Dictionary(uniqueKeysWithValues: films.map { ($0.id, $0) })
         return savedIDs.compactMap { byID[$0] }
     }
 
     func isSaved(_ movie: Movie) -> Bool { savedIDs.contains(movie.id) }
-    func isWatched(_ movie: Movie) -> Bool { watchedIDs.contains(movie.id) }
 
     func toggleSaved(_ movie: Movie) {
         if let index = savedIDs.firstIndex(of: movie.id) {
             savedIDs.remove(at: index)
-            watchedIDs.remove(movie.id)
         } else {
             savedIDs.insert(movie.id, at: 0)
         }
-        persist()
-    }
-
-    func toggleWatched(_ movie: Movie) {
-        if watchedIDs.contains(movie.id) {
-            watchedIDs.remove(movie.id)
-        } else {
-            watchedIDs.insert(movie.id)
-            if !savedIDs.contains(movie.id) { savedIDs.insert(movie.id, at: 0) }
-        }
-        persist()
-    }
-
-    /// Ticket number printed on a stub: its position in the order films were saved.
-    func stubNumber(for movie: Movie) -> Int {
-        guard let index = savedIDs.firstIndex(of: movie.id) else { return 0 }
-        return savedIDs.count - index
-    }
-
-    private func persist() {
         defaults.set(savedIDs, forKey: Self.savedKey)
-        defaults.set(Array(watchedIDs), forKey: Self.watchedKey)
+    }
+
+    func removeSaved(at offsets: IndexSet) {
+        savedIDs.remove(atOffsets: offsets)
+        defaults.set(savedIDs, forKey: Self.savedKey)
     }
 
     // MARK: Loading
+
+    private static func dayKey(_ date: Date) -> String {
+        let parts = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return "\(parts.year ?? 0)-\(parts.month ?? 0)-\(parts.day ?? 0)"
+    }
 
     private static func loadBundledCatalog() -> [Movie] {
         guard let url = Bundle.main.url(forResource: "movies", withExtension: "json") else {

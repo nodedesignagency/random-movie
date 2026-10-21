@@ -1,159 +1,132 @@
 import SwiftUI
 
-/// Full-screen film page. Presented with a zoom transition out of whichever
-/// poster you tapped, and swipe-down to dismiss back into it.
+/// One film, opened out of its case: the still, the logline, who made it, and what to do next.
 struct MovieDetailView: View {
     let movie: Movie
-    var onOrbit: (Movie) -> Void
+    let poster: UIImage?
+    let swatches: [Color]?
+    let isPick: Bool
+    let isSaved: Bool
+    var onToggleSave: () -> Void
+    var onMoreLikeThis: () -> Void
 
-    @Environment(MovieStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ZStack(alignment: .top) {
-            AmbientBackground(tint: movie.glow)
-            GrainOverlay()
+        ZStack(alignment: .topLeading) {
+            PosterBackdrop(movie: movie, poster: poster, swatches: swatches)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    PosterView(movie: movie)
-                        .frame(width: 250, height: 375)
-                        .clipShape(.rect(cornerRadius: 22, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .strokeBorder(.white.opacity(0.18), lineWidth: 1)
-                        }
-                        .shadow(color: movie.glow.opacity(0.45), radius: 40, y: 20)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 72)
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(movie.title)
-                            .font(.display(38, weight: .bold))
-                            .foregroundStyle(Theme.primaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text(verbatim: "\(movie.year) · \(movie.runtimeLabel) · \(movie.genres.joined(separator: " / "))".uppercased())
-                            .font(.mono(12, weight: .semibold))
-                            .foregroundStyle(Theme.secondaryText)
-                    }
-
-                    Text(movie.logline)
-                        .font(.system(size: 19, weight: .regular, design: .serif))
-                        .foregroundStyle(Theme.primaryText.opacity(0.88))
-                        .lineSpacing(4)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    HStack(spacing: 6) {
-                        ForEach(movie.moods) { mood in
-                            MoodTag(mood: mood)
-                        }
-                    }
-
-                    credits
-
-                    actions
+                VStack(alignment: .leading, spacing: 0) {
+                    hero
+                    content
+                        .padding(.horizontal, 22)
+                        .padding(.top, -70)
+                        .padding(.bottom, 40)
                 }
-                .padding(.horizontal, 22)
-                .padding(.bottom, 48)
             }
             .scrollIndicators(.hidden)
+            .ignoresSafeArea(edges: .top)
 
-            topBar
+            GlassCircleButton(systemImage: "xmark", size: 44, label: "Close") { dismiss() }
+                .padding(.leading, 16)
+                .padding(.top, 4)
         }
         .preferredColorScheme(.dark)
     }
 
-    private var credits: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                label("DIRECTED BY")
-                Text(movie.director)
-                    .font(.display(22))
-                    .foregroundStyle(Theme.primaryText)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                label("STARRING")
-                ScrollView(.horizontal) {
-                    HStack(spacing: 6) {
-                        ForEach(movie.cast, id: \.self) { name in
-                            Text(name)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(Theme.primaryText)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(.white.opacity(0.08), in: .capsule)
-                        }
+    private var hero: some View {
+        Color.clear
+            .frame(height: 470)
+            .overlay {
+                AsyncImage(url: movie.backdropURL, transaction: Transaction(animation: .easeOut(duration: 0.4))) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    } else if let poster {
+                        Image(uiImage: poster).resizable().scaledToFill()
+                    } else {
+                        movie.base
                     }
                 }
-                .scrollIndicators(.hidden)
             }
-        }
+            .clipped()
+            .mask {
+                LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.6), .init(color: .clear, location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+            }
     }
 
-    private var actions: some View {
-        let saved = store.isSaved(movie)
-        return GlassEffectContainer(spacing: 12) {
-            HStack(spacing: 12) {
-                Button {
-                    withAnimation(.snappy) { store.toggleSaved(movie) }
-                } label: {
-                    Label(saved ? "Saved" : "Save stub", systemImage: saved ? "ticket.fill" : "ticket")
-                        .font(.system(size: 16, weight: .semibold))
-                        .contentTransition(.symbolEffect(.replace))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 10) {
+                if isPick {
+                    Label("Tonight’s pick", systemImage: "sparkle")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .padding(.horizontal, 12)
+                        .frame(height: 28)
+                        .glassEffect(.regular, in: .capsule)
                 }
-                .buttonStyle(.glass)
-                .sensoryFeedback(.impact(weight: .light), trigger: saved)
+                Text(movie.title)
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(verbatim: "\(movie.year)  ·  \(movie.genres.joined(separator: " / "))  ·  \(movie.runtimeLabel)")
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
 
-                Button {
-                    onOrbit(movie)
-                } label: {
-                    Label("Rabbit hole", systemImage: "point.3.filled.connected.trianglepath.dotted")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+            Text(movie.logline)
+                .font(.system(size: 19, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.92))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 12) {
+                fact("Director", movie.director)
+                fact("Cast", movie.cast.joined(separator: ", "))
+                fact("Feels", movie.moods.map(\.title).joined(separator: ", "))
+            }
+
+            GlassEffectContainer(spacing: 12) {
+                HStack(spacing: 12) {
+                    Button(action: onToggleSave) {
+                        Label(isSaved ? "Saved" : "Save", systemImage: isSaved ? "bookmark.fill" : "bookmark")
+                            .contentTransition(.symbolEffect(.replace))
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .contentShape(.capsule)
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.tint(.white.opacity(0.9)).interactive(), in: .capsule)
+
+                    Button(action: onMoreLikeThis) {
+                        Label("More like this", systemImage: "sparkles.rectangle.stack")
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .contentShape(.capsule)
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: .capsule)
                 }
-                .buttonStyle(.glassProminent)
-                .tint(Theme.ember)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
             }
+            .sensoryFeedback(.impact(weight: .light), trigger: isSaved)
+
+            Text("Posters and stills from TMDB. This app is not endorsed or certified by TMDB.")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.4))
         }
-        .padding(.top, 8)
+        .foregroundStyle(.white)
     }
 
-    private var topBar: some View {
-        HStack {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.primaryText)
-                    .frame(width: 46, height: 46)
-            }
-            .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: .circle)
-            .accessibilityLabel("Close")
-
-            Spacer()
-
-            ShareLink(item: "Tonight’s pick: \(movie.title) (\(movie.year)), dir. \(movie.director). Rolled on Reel.") {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.primaryText)
-                    .frame(width: 46, height: 46)
-            }
-            .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: .circle)
+    private func fact(_ label: String, _ value: String) -> some View {
+        GridRow {
+            Text(label.uppercased())
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .tracking(1.6)
+                .foregroundStyle(.white.opacity(0.42))
+            Text(value)
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 6)
-    }
-
-    private func label(_ text: String) -> some View {
-        Text(text)
-            .font(.mono(11, weight: .semibold))
-            .tracking(1.5)
-            .foregroundStyle(Theme.tertiaryText)
     }
 }

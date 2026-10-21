@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// A film in the bundled catalog. Every film carries its own art direction
-/// (palette, motif, typeface) so the app can print a unique poster for it.
+/// A film in the bundled catalog. `poster` and `backdrop` are TMDB image paths; the poster also
+/// ships in the app bundle so the rack can be built offline.
 nonisolated struct Movie: Identifiable, Hashable, Codable, Sendable {
     let id: String
     let title: String
@@ -13,8 +13,8 @@ nonisolated struct Movie: Identifiable, Hashable, Codable, Sendable {
     let moods: [Mood]
     let logline: String
     let palette: [String]
-    let motif: Motif
-    let typeface: Typeface
+    let poster: String
+    let backdrop: String
 
     var decade: Int { year / 10 * 10 }
 
@@ -25,24 +25,15 @@ nonisolated struct Movie: Identifiable, Hashable, Codable, Sendable {
         return minutes == 0 ? "\(hours)h" : "\(hours)h \(minutes)m"
     }
 
-    /// Poster background.
-    var base: Color { Color(hex: palette[0]) }
-    /// The loud colour: motifs, glows, the ambient light behind the UI.
-    var accent: Color { Color(hex: palette[1]) }
-    /// Typography colour, chosen to read on `base`.
-    var ink: Color { Color(hex: palette[2]) }
+    var primaryGenre: String { genres.first ?? "Film" }
 
-    /// Accent tuned to glow on the app's near-black chrome. Dark accents
-    /// (e.g. a black monolith on a white poster) fall back to the base colour.
-    var glow: Color {
-        let accentLuma = Color.luminance(hex: palette[1])
-        let baseLuma = Color.luminance(hex: palette[0])
-        if accentLuma > 0.18 { return accent }
-        return baseLuma > accentLuma ? base : accent.mix(with: .white, by: 0.4)
-    }
+    /// Stand-in colour for the backdrop until the poster has been sampled.
+    var base: Color { Color(hex: palette.first ?? "#141414") }
 
-    /// Stable 64-bit seed for generative art.
-    var seed: UInt64 { StableHash.of(id) }
+    var backdropURL: URL? { URL(string: "https://image.tmdb.org/t/p/w1280/\(backdrop)") }
+
+    /// Name of the poster file bundled in Resources/Posters.
+    var bundledPosterName: String { "poster-\(id)" }
 }
 
 nonisolated enum Mood: String, Codable, CaseIterable, Identifiable, Hashable, Sendable {
@@ -76,64 +67,5 @@ nonisolated enum Mood: String, Codable, CaseIterable, Identifiable, Hashable, Se
         case .epic: "mountain.2.fill"
         case .laugh: "face.smiling.inverse"
         }
-    }
-
-    var tint: Color {
-        switch self {
-        case .mindBending: Color(hex: "#9B8CFF")
-        case .dread: Color(hex: "#FF5D5D")
-        case .heartache: Color(hex: "#FF7FA8")
-        case .adrenaline: Color(hex: "#FFC93C")
-        case .dreamy: Color(hex: "#7FD1FF")
-        case .cozy: Color(hex: "#FFAE73")
-        case .lonely: Color(hex: "#8FA6C4")
-        case .epic: Color(hex: "#7EE0B5")
-        case .laugh: Color(hex: "#FFE066")
-        }
-    }
-}
-
-/// The graphic idea at the centre of a generated poster.
-nonisolated enum Motif: String, Codable, CaseIterable, Sendable {
-    case sun, orbit, monolith, horizon, grid, rain, rings, split, stairs
-    case bloom, wave, eye, arch, shards, stripes, spiral, halftone, burst
-}
-
-/// Poster typefaces, all of which ship with iOS.
-nonisolated enum Typeface: String, Codable, Sendable {
-    case futura, didot, avenir, bodoni, optima, gill, typewriter, copperplate
-
-    private var postScriptName: String {
-        switch self {
-        case .futura: "Futura-CondensedExtraBold"
-        case .didot: "Didot-Bold"
-        case .avenir: "AvenirNextCondensed-Heavy"
-        case .bodoni: "BodoniSvtyTwoITCTT-Bold"
-        case .optima: "Optima-ExtraBlack"
-        case .gill: "GillSans-Bold"
-        case .typewriter: "AmericanTypewriter-CondensedBold"
-        case .copperplate: "Copperplate-Bold"
-        }
-    }
-
-    /// Condensed faces are set larger and in caps; the classic serifs stay mixed-case.
-    var isUppercase: Bool {
-        switch self {
-        case .didot, .bodoni: false
-        default: true
-        }
-    }
-
-    private var scale: CGFloat {
-        switch self {
-        case .futura, .avenir, .typewriter: 0.165
-        case .gill, .optima: 0.14
-        case .copperplate: 0.12
-        case .didot, .bodoni: 0.145
-        }
-    }
-
-    func titleFont(posterWidth: CGFloat) -> Font {
-        .custom(postScriptName, fixedSize: posterWidth * scale)
     }
 }

@@ -2,120 +2,192 @@ import SwiftUI
 
 struct RootView: View {
     @State private var store = MovieStore()
-    @State private var scroller = ReelScroller()
-    @State private var orbit = OrbitModel()
-    @State private var tab: AppTab = .reel
-    @State private var showFilters = false
+    @State private var motion = RackMotion()
+    @State private var shelf = CaseShelf()
+    @State private var sheet: Sheet?
     @State private var detail: Movie?
-    @State private var spins = 0
     @Namespace private var zoom
 
-    /// The light behind everything follows whatever film has your attention.
-    private var focusTint: Color {
-        switch tab {
-        case .reel: store.movie(at: scroller.index)?.glow ?? Theme.ember
-        case .orbit: orbit.center?.glow ?? Theme.ember
-        case .stubs: store.savedMovies.first?.glow ?? Theme.ember
-        }
+    private let options = LaunchOptions.current
+
+    enum Sheet: String, Identifiable {
+        case mood, shelf
+        var id: String { rawValue }
     }
+
+    /// While "Pick for me" spins, the title holds the film it started from.
+    private var shown: Movie? { store.film(at: motion.pickingFrom ?? motion.focus) }
 
     var body: some View {
         ZStack {
-            AmbientBackground(tint: focusTint)
+            PosterBackdrop(movie: shown,
+                           poster: shown.flatMap { shelf.posters[$0.id] },
+                           swatches: shown.flatMap { shelf.swatches[$0.id] })
 
-            Group {
-                switch tab {
-                case .reel:
-                    ReelScreen(scroller: scroller, zoom: zoom, showFilters: $showFilters, onOpen: open)
-                case .orbit:
-                    OrbitScreen(model: orbit, fallback: store.movie(at: scroller.index), zoom: zoom, onOpen: open)
-                case .stubs:
-                    StubsScreen(zoom: zoom, onOpen: open, onBrowse: { withAnimation(.snappy) { tab = .reel } })
+            GeometryReader { proxy in
+                RackView(store: store, motion: motion, shelf: shelf, geometry: RackGeometry(size: proxy.size), zoom: zoom) {
+                    detail = $0
                 }
             }
-            .transition(.blurReplace)
+            .ignoresSafeArea()
 
-            GrainOverlay()
+            chrome
         }
-        .overlay(alignment: .bottom) {
-            if !showFilters {
-                GlassTabBar(selection: $tab, spins: spins, onSpin: spin)
-                    .padding(.bottom, 8)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+        .sheet(item: $sheet) { kind in
+            switch kind {
+            case .mood:
+                MoodSheet(current: store.mood, count: store.count(for:), onChoose: chooseMood)
+            case .shelf:
+                ShelfSheet(store: store, posters: shelf.posters) { movie in
+                    sheet = nil
+                    travel(to: movie)
+                }
             }
         }
-        .environment(store)
         .fullScreenCover(item: $detail) { movie in
-            MovieDetailView(movie: movie, onOrbit: startOrbit)
-                .environment(store)
+            MovieDetailView(movie: movie,
+                            poster: shelf.posters[movie.id],
+                            swatches: shelf.swatches[movie.id],
+                            isPick: movie.id == store.pickID,
+                            isSaved: store.isSaved(movie),
+                            onToggleSave: { store.toggleSaved(movie) },
+                            onMoreLikeThis: { moreLike(movie) })
                 .navigationTransition(.zoom(sourceID: movie.id, in: zoom))
         }
-        .onReceive(NotificationCenter.default.publisher(for: .reelDeviceDidShake)) { _ in
-            spin()
+        .sensoryFeedback(.selection, trigger: motion.focus)
+        .sensoryFeedback(.impact(weight: .medium), trigger: motion.landing)
+        .onChange(of: motion.landing) { _, landing in
+            guard let landing, landing.isPick, let movie = store.film(at: landing.index) else { return }
+            store.setPick(movie)
         }
-        .task { applyLaunchOptions() }
+        .onChange(of: shelf.isReady) { _, ready in
+            if ready { begin() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .reelDeviceDidShake)) { _ in pickForMe() }
+        .task {
+            prepare()
+            await shelf.prepare(store.films, around: store.pickIndex)
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var chrome: some View {
+        VStack(spacing: 0) {
+            TitleCard(movie: shown, isPick: shown?.id == store.pickID && !motion.isEntering, isPicking: motion.isPicking)
+                .padding(.horizontal, 66)
+                .padding(.top, 8)
+
+            Spacer(minLength: 0)
+
+            RulerView(count: store.films.count, motion: motion)
+                .padding(.horizontal, 12)
+
+            ControlBar(isSaved: shown.map(store.isSaved) ?? false,
+                       hasMood: store.mood != nil,
+                       onSave: { if let shown { store.toggleSaved(shown) } },
+                       onPick: pickForMe,
+                       onMood: { sheet = .mood })
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+                .padding(.bottom, 4)
+        }
+        .overlay(alignment: .topTrailing) {
+            GlassCircleButton(systemImage: "books.vertical", size: 44, showsDot: !store.savedIDs.isEmpty, label: "Your shelf") {
+                sheet = .shelf
+            }
+            .padding(.trailing, 16)
+            .padding(.top, 2)
+        }
+        .opacity(shelf.isReady ? 1 : 0)
+        .animation(.easeOut(duration: 0.4), value: shelf.isReady)
     }
 
     // MARK: Actions
 
-    private func open(_ movie: Movie) {
-        detail = movie
+    private func pickForMe() {
+        guard detail == nil, let index = store.randomIndex(awayFrom: motion.focus) else { return }
+        sheet = nil
+        motion.pick(index)
     }
 
-    private func spin() {
-        guard !store.deck.isEmpty, detail == nil else { return }
-        if scroller.count != store.deck.count { scroller.reset(count: store.deck.count) }
-        if showFilters { withAnimation(.bouncy(duration: 0.45)) { showFilters = false } }
-        if tab != .reel { withAnimation(.snappy) { tab = .reel } }
-        guard let target = store.randomIndex(excluding: scroller.index) else { return }
-        spins += 1
-        scroller.spin(toIndex: target)
-    }
-
-    private func startOrbit(from movie: Movie) {
-        detail = nil
-        // Let the detail page zoom away before the constellation forms.
+    private func chooseMood(_ mood: Mood?) {
+        store.mood = mood
+        sheet = nil
+        guard mood != nil else { return }
         Task {
             try? await Task.sleep(for: .milliseconds(380))
-            orbit.start(at: movie)
-            withAnimation(.smooth(duration: 0.45)) { tab = .orbit }
+            pickForMe()
         }
     }
 
-    /// Debug-only launch arguments used to stage screenshots, e.g.
-    /// `-ReelStartTab orbit -ReelOrbitPath inception,the-dark-knight`.
-    private func applyLaunchOptions() {
-        #if DEBUG
+    private func travel(to movie: Movie) {
+        guard let index = store.index(of: movie.id) else { return }
+        Task {
+            try? await Task.sleep(for: .milliseconds(320))
+            motion.go(to: index)
+        }
+    }
+
+    private func moreLike(_ movie: Movie) {
+        detail = nil
+        guard let next = store.related(to: movie) else { return }
+        Task {
+            try? await Task.sleep(for: .milliseconds(450))
+            if let index = store.index(of: next.id) { motion.go(to: index) }
+        }
+    }
+
+    // MARK: Start-up
+
+    private func prepare() {
+        if let id = options.pick, let movie = store.films.first(where: { $0.id == id }) { store.setPick(movie) }
+        if options.seedShelf, store.savedIDs.isEmpty {
+            for movie in store.films.prefix(4) { store.toggleSaved(movie) }
+        }
+        if let raw = options.mood { store.mood = Mood(rawValue: raw) }
+        motion.configure(count: store.films.count, start: store.pickIndex)
+    }
+
+    private func begin() {
+        if let time = options.poseIntro {
+            motion.pose(introAt: time)
+            return
+        }
+        if options.skipIntro { motion.skipIntro() } else { motion.playIntro() }
+        Task {
+            try? await Task.sleep(for: .seconds(options.skipIntro ? 0.3 : RackMotion.introDuration + 0.4))
+            if let id = options.goTo, let index = store.index(of: id) { motion.go(to: index) }
+            if options.autoPick { pickForMe() }
+            if let raw = options.sheet { sheet = Sheet(rawValue: raw) }
+            if let id = options.openDetail, let movie = store.films.first(where: { $0.id == id }) { detail = movie }
+        }
+    }
+}
+
+/// Launch arguments for taking screenshots and recordings, e.g. `-ReelGoTo dune -ReelSkipIntro YES`.
+struct LaunchOptions {
+    var pick: String?
+    var goTo: String?
+    var openDetail: String?
+    var sheet: String?
+    var mood: String?
+    var autoPick = false
+    var skipIntro = false
+    var seedShelf = false
+    var poseIntro: Double?
+
+    static var current: LaunchOptions {
         let defaults = UserDefaults.standard
-        if defaults.bool(forKey: "ReelSeedStubs"), store.savedIDs.isEmpty {
-            let picks = ["her", "blade-runner-2049", "spirited-away", "parasite", "in-the-mood-for-love", "the-matrix"]
-            for id in picks.reversed() {
-                if let movie = store.catalog.first(where: { $0.id == id }) { store.toggleSaved(movie) }
-            }
-            if let seen = store.catalog.first(where: { $0.id == "spirited-away" }) { store.toggleWatched(seen) }
-        }
-        if let path = defaults.string(forKey: "ReelOrbitPath") {
-            let movies = path.split(separator: ",").compactMap { id in store.catalog.first { $0.id == String(id) } }
-            if let first = movies.first {
-                orbit.start(at: first)
-                movies.dropFirst().forEach(orbit.dive(into:))
-            }
-        }
-        if let raw = defaults.string(forKey: "ReelStartTab"), let start = AppTab(rawValue: raw) {
-            tab = start
-        }
-        if defaults.bool(forKey: "ReelShowFilters") {
-            showFilters = true
-        }
-        if let id = defaults.string(forKey: "ReelOpenDetail"), let movie = store.catalog.first(where: { $0.id == id }) {
-            detail = movie
-        }
-        if defaults.bool(forKey: "ReelAutoSpin") {
-            Task {
-                try? await Task.sleep(for: .seconds(2))
-                spin()
-            }
-        }
-        #endif
+        var options = LaunchOptions()
+        options.pick = defaults.string(forKey: "ReelPick")
+        options.goTo = defaults.string(forKey: "ReelGoTo")
+        options.openDetail = defaults.string(forKey: "ReelOpenDetail")
+        options.sheet = defaults.string(forKey: "ReelSheet")
+        options.mood = defaults.string(forKey: "ReelMood")
+        options.autoPick = defaults.bool(forKey: "ReelAutoPick")
+        options.skipIntro = defaults.bool(forKey: "ReelSkipIntro")
+        options.seedShelf = defaults.bool(forKey: "ReelSeedShelf")
+        options.poseIntro = defaults.object(forKey: "ReelPoseIntro") != nil ? defaults.double(forKey: "ReelPoseIntro") : nil
+        return options
     }
 }
