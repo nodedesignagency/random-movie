@@ -1,15 +1,14 @@
 import SwiftUI
 
-/// The film in front, set like a title card: a badge when it's tonight's pick, the title, and
-/// year · genre · runtime.
+/// The film in front, set like a title card: the title, year · genre · runtime, and a badge
+/// underneath when it's tonight's pick. The badge sits below so the title never moves for it.
 struct TitleCard: View {
     let movie: Movie?
     let isPick: Bool
     let isPicking: Bool
 
     var body: some View {
-        VStack(spacing: 10) {
-            badge
+        VStack(spacing: 8) {
             if let movie {
                 Text(movie.title)
                     .font(.system(size: movie.title.count > 20 ? 25 : 30, weight: .bold, design: .rounded))
@@ -28,6 +27,11 @@ struct TitleCard: View {
                     .id("meta-\(movie.id)")
                     .transition(AnyTransition.opacity)
             }
+            if isPick || isPicking {
+                badge
+                    .padding(.top, 6)
+                    .transition(AnyTransition.scale(scale: 0.85).combined(with: .opacity))
+            }
         }
         .foregroundStyle(.white)
         .shadow(color: .black.opacity(0.25), radius: 12, y: 2)
@@ -37,8 +41,7 @@ struct TitleCard: View {
     }
 
     private var badge: some View {
-        let shows = isPick || isPicking
-        return HStack(spacing: 5) {
+        HStack(spacing: 5) {
             Image(systemName: "sparkle")
                 .font(.system(size: 11, weight: .bold))
                 .symbolEffect(.pulse, isActive: isPicking)
@@ -49,9 +52,6 @@ struct TitleCard: View {
         .padding(.horizontal, 12)
         .frame(height: 28)
         .glassEffect(.regular, in: .capsule)
-        .opacity(shows ? 1 : 0)
-        .scaleEffect(shows ? 1 : 0.85)
-        .accessibilityHidden(!shows)
     }
 }
 

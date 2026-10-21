@@ -6,6 +6,8 @@ struct RootView: View {
     @State private var shelf = CaseShelf()
     @State private var sheet: Sheet?
     @State private var detail: Movie?
+    /// Bottom of the title card on screen; the rack fades out just below it so the two never collide.
+    @State private var titleBottom: CGFloat = 200
     @Namespace private var zoom
 
     private let options = LaunchOptions.current
@@ -27,6 +29,12 @@ struct RootView: View {
             GeometryReader { proxy in
                 RackView(store: store, motion: motion, shelf: shelf, geometry: RackGeometry(size: proxy.size), zoom: zoom) {
                     detail = $0
+                }
+                .mask {
+                    let height = max(proxy.size.height, 1)
+                    LinearGradient(stops: [.init(color: .clear, location: (titleBottom - 6) / height),
+                                           .init(color: .black, location: (titleBottom + 90) / height)],
+                                   startPoint: .top, endPoint: .bottom)
                 }
             }
             .ignoresSafeArea()
@@ -75,7 +83,10 @@ struct RootView: View {
         VStack(spacing: 0) {
             TitleCard(movie: shown, isPick: shown?.id == store.pickID && !motion.isEntering, isPicking: motion.isPicking)
                 .padding(.horizontal, 66)
-                .padding(.top, 8)
+                .padding(.top, 4)
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { bottom in
+                    withAnimation(.smooth(duration: 0.35)) { titleBottom = bottom }
+                }
 
             Spacer(minLength: 0)
 
@@ -92,7 +103,7 @@ struct RootView: View {
                 .padding(.bottom, 4)
         }
         .overlay(alignment: .topTrailing) {
-            GlassCircleButton(systemImage: "books.vertical", size: 44, showsDot: !store.savedIDs.isEmpty, label: "Your shelf") {
+            GlassCircleButton(systemImage: "film.stack", size: 44, showsDot: !store.savedIDs.isEmpty, label: "Your shelf") {
                 sheet = .shelf
             }
             .padding(.trailing, 16)

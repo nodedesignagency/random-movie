@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Drag to discover: every film is a tick, and a ringed handle with a pin rides along them. The
-/// ticks swell and brighten around the handle, so wherever it goes a little wave follows.
+/// Drag to discover: every film is a tick, and a pin rides along them. The ticks swell and
+/// brighten around the pin, so wherever it goes a little wave follows.
 struct RulerView: View {
     let count: Int
     let motion: RackMotion
@@ -53,11 +53,10 @@ struct RulerView: View {
                          with: .color(.white.opacity(alpha)))
         }
 
-        let ringCenter = CGPoint(x: handle, y: baseline - 13)
-        let ring = Path(ellipseIn: CGRect(x: ringCenter.x - 14, y: ringCenter.y - 14, width: 28, height: 28))
-        context.fill(ring, with: .color(.black.opacity(0.22)))
-        context.stroke(ring, with: .color(.white), lineWidth: 1.5)
-        context.fill(Path(CGRect(x: handle - 0.9, y: 8, width: 1.8, height: baseline - 8)), with: .color(.white))
-        context.fill(Path(ellipseIn: CGRect(x: handle - 2.7, y: 8 - 2.7, width: 5.4, height: 5.4)), with: .color(.white))
+        context.drawLayer { pin in
+            pin.addFilter(.shadow(color: .white.opacity(0.55), radius: 5))
+            pin.fill(Path(roundedRect: CGRect(x: handle - 1, y: 8, width: 2, height: baseline - 8), cornerRadius: 1), with: .color(.white))
+            pin.fill(Path(ellipseIn: CGRect(x: handle - 3, y: 8 - 3, width: 6, height: 6)), with: .color(.white))
+        }
     }
 }

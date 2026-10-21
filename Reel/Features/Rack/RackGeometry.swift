@@ -37,7 +37,7 @@ nonisolated struct RackGeometry {
         stepLength = caseWidth * 0.18
         let angle = 38.0 * Double.pi / 180
         step = CGVector(dx: cos(angle) * stepLength, dy: -sin(angle) * stepLength)
-        anchor = CGPoint(x: size.width * 0.5 - slide.dx * 0.42, y: min(size.height * 0.45, size.height - 420))
+        anchor = CGPoint(x: size.width * 0.5 - slide.dx * 0.42, y: min(size.height * 0.52, size.height - 380))
     }
 
     /// The rendered case image is larger than the case itself: it carries its shadow.
