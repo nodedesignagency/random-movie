@@ -2,39 +2,48 @@
 
 A random-movie picker for iOS 26, built in SwiftUI with Liquid Glass and a dark, cinematic look.
 
-## The three tabs
+## What it does
 
-**Reel**: posters sit on a 3D drum, a bit like a Rolodex. The card in front faces you and the rest fold back into thin slivers above and below. You can drag it with your finger, flick it and let it coast, or tap a sliver to bring that card forward. Each card that passes gives a haptic tick. Tap the **dice**, or shake the phone, and the reel spins like a slot machine. It slows down and lands on a random film, and the light behind it flares.
+**The rack**: every film is a real CD jewel case, standing in a row that runs corner to corner across the screen. The case in front slides out of the row toward you so you can see its whole cover: the full poster, plus a printed side panel with the title on its side. Drag anywhere along the rack (or flick it and let it coast) to move through the films. Tap any case to bring it out, and tap the one in front to open it. When the app opens, the cases sweep in on a ribbon, far end first.
 
-**Filters**: the slider button turns into a Liquid Glass panel. It has a mood dial (Mind-bending, Dread, Cozy…), an era ruler from 1950 to today with two draggable handles, and a length picker. The reel updates while you adjust them.
+**The backdrop**: the colours of the film in front fill the whole screen, edge to edge, with its poster blurred on top. When you move to another film, they blend into its colours.
 
-**Orbit**: the "rabbit hole". One film sits in the centre and related films circle it. Each one says why it's related: same director, a shared actor, a shared mood. Tap a film and it moves to the centre while a new set of related films appears around it. Breadcrumbs at the top show the path you took.
+**Tonight's pick**: each day the app picks one film and marks it with a "Tonight's pick" badge. **Pick for me** (or shaking the phone) spins the rack to a new random film, which becomes tonight's pick.
 
-**Stubs**: films you save are printed as glass ticket stubs. Tap the stub end to tear it off and stamp the film "watched".
+**The ruler**: under the rack, every film is a tick. Drag the ringed pin along it to scrub the rack. The ticks swell and brighten around the pin as it moves.
+
+**Mood**: the slider button opens a Liquid Glass sheet of moods (Mind-bending, Dread, Cozy…). Choosing one dims the films that don't match, and Pick for me only lands on films that do.
+
+**Your shelf**: the bookmark saves the film in front. The button at the top right opens your shelf; tap a film there to jump to it, or swipe to remove it.
+
+**Detail**: opens with a zoom from the case and shows the TMDB backdrop, logline, director, cast and moods, plus **More like this**, which travels the rack to the most closely related film.
 
 ## Run it
 
-Open `Reel.xcodeproj` in **Xcode 26** or later, pick an iPhone simulator or a device, and press Run. It has no dependencies and needs no API keys. For a physical device, choose your team under *Signing & Capabilities*.
+Open `Reel.xcodeproj` in **Xcode 26** or later, pick an iPhone simulator or a device, and press Run. It has no dependencies and needs no API keys. Posters ship in the app; backdrops on the detail page load from TMDB's image CDN. For a physical device, choose your team under *Signing & Capabilities*.
 
 ## How it's built
 
 | Area | Where |
 | --- | --- |
-| Film list (88 films, chosen so directors and actors overlap) | `Reel/Resources/movies.json` |
-| Generated posters, one of 18 motifs per film, using typefaces that ship with iOS | `Reel/Design/PosterArtist.swift` |
-| Reel motion: display-link spring, flick momentum, slot-machine spin | `Reel/Motion/ReelScroller.swift` |
-| Card fold, depth and slivers | `Reel/Features/Reel/CardTransform.swift` |
-| How films are linked for Orbit | `Reel/Model/Relations.swift` |
+| Film list (88 films, with TMDB poster and backdrop paths) | `Reel/Resources/movies.json` |
+| Bundled posters | `Reel/Resources/Posters/` |
+| Jewel-case photo split into base, shade and glare layers | `Reel/Resources/Case/` |
+| Printing each cover and compositing it into the case (Core Graphics, off the main thread) | `Reel/Design/CaseArt.swift`, `Reel/Design/CaseShelf.swift` |
+| Rack physics: drag, coast, springs, spins, the entrance | `Reel/Motion/RackMotion.swift` |
+| Where each case sits, the slide-out and the ribbon entrance | `Reel/Features/Rack/RackGeometry.swift` |
+| Ruler, title card and the glass controls | `Reel/Features/Rack/` |
+| How films are linked for More like this | `Reel/Model/Relations.swift` |
 
-- The posters are not real posters. Each film gets a minimal "alternative poster" drawn in code from its own colours, motif and typeface, so the app needs no licensed artwork. To use real posters, swap `PosterArt` for an image loader (TMDB, for example).
-- The reel's motion is calculated in code on every frame instead of using SwiftUI animations. That way the app always knows which card is under the centre line, which is what makes the ticks and the slot-machine landing possible. It runs at up to 120 Hz on ProMotion screens.
+- The rack's motion is calculated in code on every frame instead of with SwiftUI animations, so the app always knows which case is in front. That's what makes the haptic ticks and the pick landing possible. It runs at up to 120 Hz on ProMotion screens.
+- Posters and stills come from TMDB. This app is not endorsed or certified by TMDB.
 
 ### Debug launch arguments
 
 These are used by CI to set up screenshots. Add them in *Scheme → Run → Arguments*:
 
-`-ReelStartTab orbit|stubs` · `-ReelShowFilters YES` · `-ReelOpenDetail <film-id>` · `-ReelOrbitPath id1,id2` · `-ReelSeedStubs YES` · `-ReelAutoSpin YES`
+`-ReelPick <film-id>` · `-ReelGoTo <film-id>` · `-ReelOpenDetail <film-id>` · `-ReelSheet mood|shelf` · `-ReelMood dread` · `-ReelAutoPick YES` · `-ReelSkipIntro YES` · `-ReelSeedShelf YES` · `-ReelPoseIntro 1.0`
 
 ## CI
 
-`.github/workflows/ios.yml` builds the app on a macOS 26 runner and uploads screenshots of each screen, plus a screen recording of a spin, as an artifact.
+`.github/workflows/ios.yml` builds the app on a macOS 26 runner and uploads screenshots of each screen, plus a screen recording of a pick, as an artifact.
