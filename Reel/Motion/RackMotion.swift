@@ -48,6 +48,8 @@ final class RackMotion {
     var focus: Int { clampIndex(Int(position.rounded())) }
     var isPicking: Bool { pickingFrom != nil }
     var isEntering: Bool { phase == .waiting || phase == .intro }
+    /// Scrubbing, dragging, spinning or coasting quickly: too fast for crossfades to read.
+    var isMovingFast: Bool { phase == .scrub || phase == .drag || phase == .spin || speed > 3 }
 
     // MARK: Setup
 

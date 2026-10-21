@@ -59,9 +59,8 @@ struct RackView: View {
 
     private func visibleIndices(around position: Double) -> [Int] {
         guard !store.films.isEmpty else { return [] }
-        let radius = Double(RackGeometry.visibleRadius)
-        let lower = max(0, Int((position - radius).rounded(.up)))
-        let upper = min(store.films.count - 1, Int((position + radius).rounded(.down)))
+        let lower = max(0, Int((position - Double(RackGeometry.behindRadius)).rounded(.up)))
+        let upper = min(store.films.count - 1, Int((position + Double(RackGeometry.visibleRadius)).rounded(.down)))
         return lower <= upper ? Array(lower...upper) : []
     }
 

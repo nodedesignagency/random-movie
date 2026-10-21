@@ -2,10 +2,12 @@ import SwiftUI
 
 /// The film in front, set like a title card: the title, year · genre · runtime, and a badge
 /// underneath when it's tonight's pick. The badge sits below so the title never moves for it.
+/// While the rack is flying past, the title swaps instantly so ghosts of earlier titles never pile up.
 struct TitleCard: View {
     let movie: Movie?
     let isPick: Bool
     let isPicking: Bool
+    let isMoving: Bool
 
     var body: some View {
         VStack(spacing: 8) {
@@ -17,15 +19,13 @@ struct TitleCard: View {
                     .minimumScaleFactor(0.75)
                     .blur(radius: isPicking ? 5 : 0)
                     .opacity(isPicking ? 0.4 : 1)
-                    .id(movie.id)
-                    .transition(AnyTransition.asymmetric(insertion: AnyTransition.opacity.combined(with: .offset(y: -6)), removal: .opacity))
+                    .contentTransition(.opacity)
 
                 Text(verbatim: "\(movie.year)  ·  \(movie.primaryGenre)  ·  \(movie.runtimeLabel)")
                     .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.68))
                     .opacity(isPicking ? 0 : 1)
-                    .id("meta-\(movie.id)")
-                    .transition(AnyTransition.opacity)
+                    .contentTransition(.opacity)
             }
             if isPick || isPicking {
                 badge
@@ -35,7 +35,7 @@ struct TitleCard: View {
         }
         .foregroundStyle(.white)
         .shadow(color: .black.opacity(0.25), radius: 12, y: 2)
-        .animation(.smooth(duration: 0.35), value: movie?.id)
+        .animation(isMoving ? nil : .smooth(duration: 0.3), value: movie?.id)
         .animation(.smooth(duration: 0.3), value: isPicking)
         .animation(.bouncy(duration: 0.45), value: isPick)
     }

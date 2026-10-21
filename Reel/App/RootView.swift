@@ -8,6 +8,8 @@ struct RootView: View {
     @State private var detail: Movie?
     /// Bottom of the title card on screen; the rack fades out just below it so the two never collide.
     @State private var titleBottom: CGFloat = 200
+    /// The backdrop follows the rack once it slows down, not every case it flies past.
+    @State private var backdropIndex: Int?
     @Namespace private var zoom
 
     private let options = LaunchOptions.current
@@ -19,12 +21,13 @@ struct RootView: View {
 
     /// While "Pick for me" spins, the title holds the film it started from.
     private var shown: Movie? { store.film(at: motion.pickingFrom ?? motion.focus) }
+    private var backdropMovie: Movie? { store.film(at: backdropIndex ?? motion.pickingFrom ?? motion.focus) }
 
     var body: some View {
         ZStack {
-            PosterBackdrop(movie: shown,
-                           poster: shown.flatMap { shelf.posters[$0.id] },
-                           swatches: shown.flatMap { shelf.swatches[$0.id] })
+            PosterBackdrop(movie: backdropMovie,
+                           poster: backdropMovie.flatMap { shelf.posters[$0.id] },
+                           swatches: backdropMovie.flatMap { shelf.swatches[$0.id] })
 
             GeometryReader { proxy in
                 RackView(store: store, motion: motion, shelf: shelf, geometry: RackGeometry(size: proxy.size), zoom: zoom) {
@@ -32,8 +35,8 @@ struct RootView: View {
                 }
                 .mask {
                     let height = max(proxy.size.height, 1)
-                    LinearGradient(stops: [.init(color: .clear, location: (titleBottom - 6) / height),
-                                           .init(color: .black, location: (titleBottom + 90) / height)],
+                    LinearGradient(stops: [.init(color: .clear, location: (titleBottom + 2) / height),
+                                           .init(color: .black, location: (titleBottom + 34) / height)],
                                    startPoint: .top, endPoint: .bottom)
                 }
             }
@@ -68,6 +71,12 @@ struct RootView: View {
             guard let landing, landing.isPick, let movie = store.film(at: landing.index) else { return }
             store.setPick(movie)
         }
+        .onChange(of: motion.focus) { _, focus in
+            if !motion.isMovingFast, motion.pickingFrom == nil { backdropIndex = focus }
+        }
+        .onChange(of: motion.phase) { _, phase in
+            if phase == .idle { backdropIndex = motion.focus }
+        }
         .onChange(of: shelf.isReady) { _, ready in
             if ready { begin() }
         }
@@ -81,7 +90,10 @@ struct RootView: View {
 
     private var chrome: some View {
         VStack(spacing: 0) {
-            TitleCard(movie: shown, isPick: shown?.id == store.pickID && !motion.isEntering, isPicking: motion.isPicking)
+            TitleCard(movie: shown,
+                      isPick: shown?.id == store.pickID && !motion.isEntering,
+                      isPicking: motion.isPicking,
+                      isMoving: motion.isMovingFast)
                 .padding(.horizontal, 66)
                 .padding(.top, 4)
                 .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { bottom in

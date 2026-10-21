@@ -25,7 +25,10 @@ nonisolated struct RackGeometry {
     /// Where the film in front would sit if it stayed in the row.
     let anchor: CGPoint
 
+    /// How many cases show in front of (down-left of) the film in front, and behind it (up-right).
+    /// The run behind is short so the rack ends below the title instead of under it.
     static let visibleRadius = 15
+    static let behindRadius = 7
 
     init(size: CGSize) {
         self.size = size
@@ -57,7 +60,7 @@ nonisolated struct RackGeometry {
     func placement(for index: Int, position: Double, introTime: Double?, calm: Double) -> Placement? {
         let d = Double(index) - position
         let distance = abs(d)
-        guard distance <= Double(Self.visibleRadius) else { return nil }
+        guard d <= Double(Self.visibleRadius), d >= -Double(Self.behindRadius) else { return nil }
 
         var pull = smoothstep(1 - distance) * calm
         var x = anchor.x - d * step.dx
@@ -67,7 +70,7 @@ nonisolated struct RackGeometry {
 
         if let time = introTime {
             // A ribbon sweeps in from the lower right and lays each case into its slot, far end first.
-            let order = (d + Double(Self.visibleRadius)) / Double(Self.visibleRadius * 2)
+            let order = (d + Double(Self.behindRadius)) / Double(Self.behindRadius + Self.visibleRadius)
             let progress = clamp01((time - order * 0.9) / 0.8)
             let eased = 1 - pow(1 - progress, 3)
             let start = CGPoint(x: x + size.width * 0.95, y: y + size.height * 0.32)
@@ -82,7 +85,9 @@ nonisolated struct RackGeometry {
 
         x += slide.dx * pull
         y += slide.dy * pull - pull * caseHeight * 0.02
-        let blur = (min(6, max(0, distance - 4.5) * 0.9) * 2).rounded() / 2
+        // The far end dissolves case by case; the near end, running under the controls, goes soft.
+        opacity *= clamp01((d + Double(Self.behindRadius)) / 2.5)
+        let blur = (min(5, max(0, d - 5) * 0.8) * 2).rounded() / 2
         return Placement(center: CGPoint(x: x, y: y), scale: scale, opacity: opacity, blur: blur, depth: d)
     }
 
