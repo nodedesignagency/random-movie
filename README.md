@@ -20,7 +20,7 @@ A random-movie picker for iOS 26, built in SwiftUI with Liquid Glass and a dark,
 
 ## Run it
 
-Open `Reel.xcodeproj` in **Xcode 26** or later, pick an iPhone simulator or a device, and press Run. It has no dependencies and needs no API keys. Posters ship in the app; backdrops on the detail page load from TMDB's image CDN. For a physical device, choose your team under *Signing & Capabilities*.
+With **Xcode 26** or later installed, run `./scripts/run.sh` from the repo folder: it builds the app and opens it in the iPhone 17 Pro simulator (pass another simulator name to use that one). Or open `Reel.xcodeproj`, pick an iPhone simulator or a device, and press Run. It has no dependencies and needs no API keys. Posters ship in the app; backdrops on the detail page load from TMDB's image CDN. For a physical device, choose your team under *Signing & Capabilities*.
 
 ## How it's built
 
