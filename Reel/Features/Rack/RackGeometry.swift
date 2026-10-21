@@ -26,9 +26,9 @@ nonisolated struct RackGeometry {
     let anchor: CGPoint
 
     /// How many cases show in front of (down-left of) the film in front, and behind it (up-right).
-    /// The run behind is short so the rack ends below the title instead of under it.
+    /// Both runs carry on off the edges of the screen.
     static let visibleRadius = 15
-    static let behindRadius = 7
+    static let behindRadius = 15
 
     init(size: CGSize) {
         self.size = size
@@ -38,9 +38,10 @@ nonisolated struct RackGeometry {
         let tr = CaseTemplate.insertTopRight
         slide = CGVector(dx: (tr.x - tl.x) * caseWidth, dy: (tr.y - tl.y) * caseHeight)
         stepLength = caseWidth * 0.18
-        let angle = 38.0 * Double.pi / 180
+        // Shallow enough that the far end leaves through the right edge, below the title.
+        let angle = 34.0 * Double.pi / 180
         step = CGVector(dx: cos(angle) * stepLength, dy: -sin(angle) * stepLength)
-        anchor = CGPoint(x: size.width * 0.5 - slide.dx * 0.42, y: min(size.height * 0.52, size.height - 380))
+        anchor = CGPoint(x: size.width * 0.5 - slide.dx * 0.42, y: min(size.height * 0.55, size.height - 370))
     }
 
     /// The rendered case image is larger than the case itself: it carries its shadow.
@@ -85,8 +86,7 @@ nonisolated struct RackGeometry {
 
         x += slide.dx * pull
         y += slide.dy * pull - pull * caseHeight * 0.02
-        // The far end dissolves case by case; the near end, running under the controls, goes soft.
-        opacity *= clamp01((d + Double(Self.behindRadius)) / 2.5)
+        // The near end, running under the controls, goes a little soft.
         let blur = (min(5, max(0, d - 5) * 0.8) * 2).rounded() / 2
         return Placement(center: CGPoint(x: x, y: y), scale: scale, opacity: opacity, blur: blur, depth: d)
     }

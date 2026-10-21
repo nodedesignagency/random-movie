@@ -14,7 +14,7 @@ struct MovieDetailView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            PosterBackdrop(movie: movie, poster: poster, swatches: swatches)
+            PosterBackdrop(movie: movie, swatches: swatches, posterID: movie.id, poster: poster)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {

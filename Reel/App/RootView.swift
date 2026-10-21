@@ -6,10 +6,9 @@ struct RootView: View {
     @State private var shelf = CaseShelf()
     @State private var sheet: Sheet?
     @State private var detail: Movie?
-    /// Bottom of the title card on screen; the rack fades out just below it so the two never collide.
-    @State private var titleBottom: CGFloat = 200
-    /// The backdrop follows the rack once it slows down, not every case it flies past.
-    @State private var backdropIndex: Int?
+    /// The blurred poster in the backdrop catches up once the rack slows down; the colours
+    /// underneath follow every case.
+    @State private var posterIndex: Int?
     @Namespace private var zoom
 
     private let options = LaunchOptions.current
@@ -21,23 +20,18 @@ struct RootView: View {
 
     /// While "Pick for me" spins, the title holds the film it started from.
     private var shown: Movie? { store.film(at: motion.pickingFrom ?? motion.focus) }
-    private var backdropMovie: Movie? { store.film(at: backdropIndex ?? motion.pickingFrom ?? motion.focus) }
+    private var posterMovie: Movie? { store.film(at: posterIndex ?? motion.pickingFrom ?? motion.focus) }
 
     var body: some View {
         ZStack {
-            PosterBackdrop(movie: backdropMovie,
-                           poster: backdropMovie.flatMap { shelf.posters[$0.id] },
-                           swatches: backdropMovie.flatMap { shelf.swatches[$0.id] })
+            PosterBackdrop(movie: shown,
+                           swatches: shown.flatMap { shelf.swatches[$0.id] },
+                           posterID: posterMovie?.id,
+                           poster: posterMovie.flatMap { shelf.posters[$0.id] })
 
             GeometryReader { proxy in
                 RackView(store: store, motion: motion, shelf: shelf, geometry: RackGeometry(size: proxy.size), zoom: zoom) {
                     detail = $0
-                }
-                .mask {
-                    let height = max(proxy.size.height, 1)
-                    LinearGradient(stops: [.init(color: .clear, location: (titleBottom + 2) / height),
-                                           .init(color: .black, location: (titleBottom + 34) / height)],
-                                   startPoint: .top, endPoint: .bottom)
                 }
             }
             .ignoresSafeArea()
@@ -72,10 +66,10 @@ struct RootView: View {
             store.setPick(movie)
         }
         .onChange(of: motion.focus) { _, focus in
-            if !motion.isMovingFast, motion.pickingFrom == nil { backdropIndex = focus }
+            if !motion.isMovingFast, motion.pickingFrom == nil { posterIndex = focus }
         }
         .onChange(of: motion.phase) { _, phase in
-            if phase == .idle { backdropIndex = motion.focus }
+            if phase == .idle { posterIndex = motion.focus }
         }
         .onChange(of: shelf.isReady) { _, ready in
             if ready { begin() }
@@ -96,9 +90,6 @@ struct RootView: View {
                       isMoving: motion.isMovingFast)
                 .padding(.horizontal, 66)
                 .padding(.top, 4)
-                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { bottom in
-                    withAnimation(.smooth(duration: 0.35)) { titleBottom = bottom }
-                }
 
             Spacer(minLength: 0)
 
