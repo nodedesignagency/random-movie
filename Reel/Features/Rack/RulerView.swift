@@ -7,7 +7,7 @@ struct RulerView: View {
     let motion: RackMotion
 
     private static let inset: CGFloat = 22
-    private static let height: CGFloat = 64
+    private static let height: CGFloat = 76
 
     var body: some View {
         let position = motion.position
@@ -55,8 +55,9 @@ struct RulerView: View {
 
         context.drawLayer { pin in
             pin.addFilter(.shadow(color: .white.opacity(0.55), radius: 5))
-            pin.fill(Path(roundedRect: CGRect(x: handle - 1, y: 8, width: 2, height: baseline - 8), cornerRadius: 1), with: .color(.white))
-            pin.fill(Path(ellipseIn: CGRect(x: handle - 3, y: 8 - 3, width: 6, height: 6)), with: .color(.white))
+            let top: CGFloat = 18      // leaves room above for the dot and its glow
+            pin.fill(Path(roundedRect: CGRect(x: handle - 1, y: top, width: 2, height: baseline - top), cornerRadius: 1), with: .color(.white))
+            pin.fill(Path(ellipseIn: CGRect(x: handle - 3, y: top - 3, width: 6, height: 6)), with: .color(.white))
         }
     }
 }

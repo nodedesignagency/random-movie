@@ -28,7 +28,7 @@ struct ShelfSheet: View {
             } else {
                 List {
                     ForEach(store.savedMovies) { movie in
-                        Button { onSelect(movie) } label: { row(movie) }
+                        Button { onSelect(movie) } label: { FilmRow(movie: movie, poster: posters[movie.id]) }
                             .buttonStyle(.plain)
                             .listRowBackground(Color.clear)
                             .listRowSeparatorTint(.white.opacity(0.1))
@@ -42,11 +42,17 @@ struct ShelfSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
+}
 
-    private func row(_ movie: Movie) -> some View {
+/// A film in a list: poster thumbnail, title, director and year.
+struct FilmRow: View {
+    let movie: Movie
+    let poster: UIImage?
+
+    var body: some View {
         HStack(spacing: 14) {
             Group {
-                if let poster = posters[movie.id] {
+                if let poster {
                     Image(uiImage: poster).resizable().scaledToFill()
                 } else {
                     movie.base

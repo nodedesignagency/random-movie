@@ -4,7 +4,7 @@ import SwiftUI
 struct MovieDetailView: View {
     let movie: Movie
     let poster: UIImage?
-    let swatches: [Color]?
+    let swatches: [RGB]?
     let isPick: Bool
     let isSaved: Bool
     var onToggleSave: () -> Void
@@ -14,7 +14,7 @@ struct MovieDetailView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            PosterBackdrop(movie: movie, swatches: swatches, posterID: movie.id, poster: poster)
+            PosterBackdrop(key: movie.id, palette: swatches, fallback: movie.backdropFallback)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {

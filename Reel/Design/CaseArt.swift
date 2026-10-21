@@ -185,25 +185,46 @@ nonisolated enum CaseArt {
         return best
     }
 
-    /// A 3×3 grid of the poster's colours, lifted in saturation and kept dark enough for white
-    /// type, for the full-screen backdrop.
-    static func swatches(of poster: CGImage) -> [Color] {
-        var pixels = [UInt8](repeating: 0, count: 3 * 3 * 4)
+    /// Side of the grid of colours sampled from each poster for the backdrop.
+    static let swatchGrid = 4
+
+    /// A grid of the poster's colours, row by row from the top, lifted in saturation and kept
+    /// dark enough for white type, for the full-screen backdrop.
+    static func swatches(of poster: CGImage) -> [RGB] {
+        let side = swatchGrid
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
         let drew = pixels.withUnsafeMutableBytes { buffer -> Bool in
-            guard let context = CGContext(data: buffer.baseAddress, width: 3, height: 3, bitsPerComponent: 8, bytesPerRow: 12,
+            guard let context = CGContext(data: buffer.baseAddress, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side * 4,
                                           space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
                                           bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
             context.interpolationQuality = .medium
-            context.draw(poster, in: CGRect(x: 0, y: 0, width: 3, height: 3))
+            context.draw(poster, in: CGRect(x: 0, y: 0, width: side, height: side))
             return true
         }
         guard drew else { return [] }
-        return (0..<9).map { index in
+        return (0..<side * side).map { index in
             let (hue, saturation, brightness) = hsb(red: Double(pixels[index * 4]) / 255,
                                                     green: Double(pixels[index * 4 + 1]) / 255,
                                                     blue: Double(pixels[index * 4 + 2]) / 255)
-            return Color(hue: hue, saturation: min(1, saturation * 1.25 + 0.08), brightness: min(max(brightness * 0.78, 0.16), 0.52))
+            return rgb(hue: hue, saturation: min(1, saturation * 1.25 + 0.08), brightness: min(max(brightness * 0.78, 0.16), 0.52))
         }
+    }
+
+    private static func rgb(hue: Double, saturation: Double, brightness: Double) -> RGB {
+        let sector = (hue * 6).truncatingRemainder(dividingBy: 6)
+        let chroma = brightness * saturation
+        let x = chroma * (1 - abs(sector.truncatingRemainder(dividingBy: 2) - 1))
+        let (r, g, b): (Double, Double, Double)
+        switch Int(sector) {
+        case 0: (r, g, b) = (chroma, x, 0)
+        case 1: (r, g, b) = (x, chroma, 0)
+        case 2: (r, g, b) = (0, chroma, x)
+        case 3: (r, g, b) = (0, x, chroma)
+        case 4: (r, g, b) = (x, 0, chroma)
+        default: (r, g, b) = (chroma, 0, x)
+        }
+        let m = brightness - chroma
+        return RGB(red: r + m, green: g + m, blue: b + m)
     }
 
     private static func hsb(red: Double, green: Double, blue: Double) -> (Double, Double, Double) {

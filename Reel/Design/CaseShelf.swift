@@ -7,7 +7,7 @@ import UIKit
 final class CaseShelf {
     private(set) var cases: [String: UIImage] = [:]
     private(set) var posters: [String: UIImage] = [:]
-    private(set) var swatches: [String: [Color]] = [:]
+    private(set) var swatches: [String: [RGB]] = [:]
     /// True once every case that's on screen at the start has been built.
     private(set) var isReady = false
 
@@ -51,7 +51,7 @@ final class CaseShelf {
         let id: String
         let caseImage: UIImage
         let poster: UIImage
-        let swatches: [Color]
+        let swatches: [RGB]
     }
 
     nonisolated private static func build(_ movie: Movie, template: CaseTemplate) -> Built? {

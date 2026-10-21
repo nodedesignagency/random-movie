@@ -27,8 +27,11 @@ nonisolated struct Movie: Identifiable, Hashable, Codable, Sendable {
 
     var primaryGenre: String { genres.first ?? "Film" }
 
-    /// Stand-in colour for the backdrop until the poster has been sampled.
+    /// Stand-in colour for posters that haven't loaded yet.
     var base: Color { Color(hex: palette.first ?? "#141414") }
+
+    /// Stand-in backdrop colour until the poster has been sampled.
+    var backdropFallback: RGB { RGB(hex: palette.first ?? "#141414").mixed(with: RGB(red: 0, green: 0, blue: 0), by: 0.35) }
 
     var backdropURL: URL? { URL(string: "https://image.tmdb.org/t/p/w1280/\(backdrop)") }
 

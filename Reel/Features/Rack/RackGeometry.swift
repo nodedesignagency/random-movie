@@ -86,8 +86,8 @@ nonisolated struct RackGeometry {
 
         x += slide.dx * pull
         y += slide.dy * pull - pull * caseHeight * 0.02
-        // The near end, running under the controls, goes a little soft.
-        let blur = (min(5, max(0, d - 5) * 0.8) * 2).rounded() / 2
+        // Both ends go soft as they run off the screen.
+        let blur = (min(5, max(0, distance - 5) * 0.8) * 2).rounded() / 2
         return Placement(center: CGPoint(x: x, y: y), scale: scale, opacity: opacity, blur: blur, depth: d)
     }
 

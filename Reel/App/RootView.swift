@@ -6,28 +6,23 @@ struct RootView: View {
     @State private var shelf = CaseShelf()
     @State private var sheet: Sheet?
     @State private var detail: Movie?
-    /// The blurred poster in the backdrop catches up once the rack slows down; the colours
-    /// underneath follow every case.
-    @State private var posterIndex: Int?
     @Namespace private var zoom
 
     private let options = LaunchOptions.current
 
     enum Sheet: String, Identifiable {
-        case mood, shelf
+        case mood, shelf, search
         var id: String { rawValue }
     }
 
     /// While "Pick for me" spins, the title holds the film it started from.
     private var shown: Movie? { store.film(at: motion.pickingFrom ?? motion.focus) }
-    private var posterMovie: Movie? { store.film(at: posterIndex ?? motion.pickingFrom ?? motion.focus) }
 
     var body: some View {
         ZStack {
-            PosterBackdrop(movie: shown,
-                           swatches: shown.flatMap { shelf.swatches[$0.id] },
-                           posterID: posterMovie?.id,
-                           poster: posterMovie.flatMap { shelf.posters[$0.id] })
+            PosterBackdrop(key: shown?.id,
+                           palette: shown.flatMap { shelf.swatches[$0.id] },
+                           fallback: shown?.backdropFallback ?? RGB(red: 0.05, green: 0.05, blue: 0.06))
 
             GeometryReader { proxy in
                 RackView(store: store, motion: motion, shelf: shelf, geometry: RackGeometry(size: proxy.size), zoom: zoom) {
@@ -44,6 +39,11 @@ struct RootView: View {
                 MoodSheet(current: store.mood, count: store.count(for:), onChoose: chooseMood)
             case .shelf:
                 ShelfSheet(store: store, posters: shelf.posters) { movie in
+                    sheet = nil
+                    travel(to: movie)
+                }
+            case .search:
+                SearchSheet(films: store.films, posters: shelf.posters) { movie in
                     sheet = nil
                     travel(to: movie)
                 }
@@ -64,12 +64,6 @@ struct RootView: View {
         .onChange(of: motion.landing) { _, landing in
             guard let landing, landing.isPick, let movie = store.film(at: landing.index) else { return }
             store.setPick(movie)
-        }
-        .onChange(of: motion.focus) { _, focus in
-            if !motion.isMovingFast, motion.pickingFrom == nil { posterIndex = focus }
-        }
-        .onChange(of: motion.phase) { _, phase in
-            if phase == .idle { posterIndex = motion.focus }
         }
         .onChange(of: shelf.isReady) { _, ready in
             if ready { begin() }
@@ -104,6 +98,13 @@ struct RootView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
                 .padding(.bottom, 4)
+        }
+        .overlay(alignment: .topLeading) {
+            GlassCircleButton(systemImage: "magnifyingglass", size: 44, label: "Find a film") {
+                sheet = .search
+            }
+            .padding(.leading, 16)
+            .padding(.top, 2)
         }
         .overlay(alignment: .topTrailing) {
             GlassCircleButton(systemImage: "film.stack", size: 44, showsDot: !store.savedIDs.isEmpty, label: "Your shelf") {
